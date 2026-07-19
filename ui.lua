@@ -186,17 +186,3 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
--- ==========================================
--- EXEMPLO DE USO DO SEU TEMPLATE
--- ==========================================
--- Aqui você cria as abas que quiser e joga o código que precisar dentro.
-
-local Aba1 = CriarAba("Aba Principal")
-Aba1:AdicionarBotao("Botão Vazio 1", function()
-    -- Seu código aqui
-end)
-
-local Aba2 = CriarAba("Configurações")
-Aba2:AdicionarBotao("Botão Vazio 2", function()
-    -- Seu código aqui
-end)
