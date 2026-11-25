@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#10152a"><title>Metro Rush — Endless Runner</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#10152a;color:#fff;font-family:system-ui,Arial}canvas{display:block;width:100%;height:100%;touch-action:none}
+#hud{position:fixed;inset:0;pointer-events:none;padding:16px;display:flex;justify-content:space-between;align-items:flex-start;text-shadow:0 2px 5px #000}
+.pill{background:#101a31cc;border:1px solid #ffffff30;border-radius:14px;padding:8px 13px;font-weight:800}
+#right{display:flex;gap:8px;flex-direction:column;align-items:flex-end}
+#overlay{position:fixed;inset:0;display:grid;place-items:center;background:linear-gradient(#07101bcc,#07101dee);padding:20px}
+.panel{width:min(440px,100%);text-align:center;background:#111d36;border:1px solid #ffffff2b;border-radius:24px;padding:26px;box-shadow:0 18px 60px #0009}
+h1{font-size:clamp(30px,8vw,48px);margin:0 0 8px;letter-spacing:-2px}p{color:#c7d3e9;line-height:1.5}
+button{border:0;border-radius:13px;padding:13px 20px;font-weight:900;font-size:16px;background:#ffd447;color:#172033;cursor:pointer;margin:5px;min-width:130px}
+button.secondary{background:#263b61;color:white;border:1px solid #ffffff30}
+.small{font-size:12px;color:#9fb1cf}#touch{position:fixed;bottom:18px;left:0;right:0;display:flex;justify-content:center;gap:10px;pointer-events:auto}
+#touch button{min-width:58px;width:58px;height:58px;padding:0;border-radius:50%;background:#172744bb;color:white;border:1px solid #ffffff55;font-size:22px;touch-action: manipulation}
+@media(hover:hover) and (pointer:fine){#touch{display:none}}
+</style></head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud"><div class="pill">DISTÂNCIA <span id="score">0</span></div><div id="right"><div class="pill">🪙 <span id="coins">0</span></div><div class="pill">RECORDE <span id="best">0</span></div><div class="pill" id="power">SEM POWER-UP</div></div></div>
+<div id="touch"><button data-act="left">◀</button><button data-act="jump">⬆</button><button data-act="slide">⬇</button><button data-act="right">▶</button></div>
+<div id="overlay"><div class="panel"><h1>METRO RUSH</h1><p>Corra pelos trilhos, desvie dos obstáculos e reúna moedas. A velocidade aumenta com o tempo!</p><p><b>← →</b> trocar pista · <b>↑ / Espaço</b> pular · <b>↓</b> deslizar · <b>P / Esc</b> pausar</p><button id="start">JOGAR</button><p class="small">Jogo independente de corrida infinita. Arte e efeitos gerados por código.</p></div></div>
+<script>
+(()=>{
+'use strict';
+const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');
+const $=s=>document.querySelector(s);let W=0,H=0,dpr=1;
+function resize(){dpr=Math.min(devicePixelRatio||1,1.6);W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+const lanes=[-1,0,1],state={mode:'menu',lane:1,x:1,jump:0,slide:0,items:[],distance:0,coins:0,speed:.34,spawn:0,road:0,shake:0,shield:0,magnet:0,double:0,flash:0};
+let best=Number(localStorage.getItem('metrorush_best')||0),last=0,elapsed=0,audio=null;
+$('#best').textContent=best;
+function sound(freq=520,dur=.07){try{audio??=new (window.AudioContext||window.webkitAudioContext)();let o=audio.createOscillator(),g=audio.createGain();o.frequency.value=freq;g.gain.setValueAtTime(.045,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+dur);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+dur)}catch{}}
+function start(){Object.assign(state,{mode:'run',lane:1,x:1,jump:0,slide:0,items:[],distance:0,coins:0,speed:.34,spawn:.4,road:0,shake:0,shield:0,magnet:0,double:0,flash:0});elapsed=0;$('#overlay').style.display='none';sound(700)}
+function end(){state.mode='over';best=Math.max(best,Math.floor(state.distance));localStorage.setItem('metrorush_best',best);$('#best').textContent=best;$('#overlay').style.display='grid';$('#overlay .panel').innerHTML='<h1>FIM DE CORRIDA</h1><p>Distância: <b>'+Math.floor(state.distance)+'</b><br>Moedas: <b>'+state.coins+'</b><br>Recorde: <b>'+best+'</b></p><button id="again">CORRER DE NOVO</button><p class="small">Dica: alterne as pistas e observe os obstáculos à frente.</p>';$('#again').onclick=start;sound(130,.25)}
+function pause(){if(state.mode==='run'){state.mode='pause';$('#overlay').style.display='grid';$('#overlay .panel').innerHTML='<h1>PAUSADO</h1><p>A corrida está pausada.</p><button id="resume">CONTINUAR</button>';$('#resume').onclick=()=>{$('#overlay').style.display='none';state.mode='run'}}}
+function act(a){if(state.mode!=='run')return;if(a==='left')state.lane=Math.max(0,state.lane-1);if(a==='right')state.lane=Math.min(2,state.lane+1);if(a==='jump'&&state.jump<=0&&state.slide<=0){state.jump=.72;sound(620)}if(a==='slide'&&state.jump<=0){state.slide=.58;sound(280)}}
+addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','a','d','w','s'].includes(e.key))e.preventDefault();if(e.key==='Escape'||e.key.toLowerCase()==='p'){pause();return}if(e.repeat)return;({ArrowLeft:()=>act('left'),a:()=>act('left'),ArrowRight:()=>act('right'),d:()=>act('right'),ArrowUp:()=>act('jump'),w:()=>act('jump'),' ':()=>act('jump'),ArrowDown:()=>act('slide'),s:()=>act('slide')}[e.key]?.())});
+document.querySelectorAll('#touch button').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();act(b.dataset.act)}));
+let pointer=null;canvas.addEventListener('pointerdown',e=>pointer={x:e.clientX,y:e.clientY});canvas.addEventListener('pointerup',e=>{if(!pointer)return;let dx=e.clientX-pointer.x,dy=e.clientY-pointer.y;if(Math.max(Math.abs(dx),Math.abs(dy))>24){if(Math.abs(dx)>Math.abs(dy))act(dx<0?'left':'right');else act(dy<0?'jump':'slide')}pointer=null});
+function spawn(){let lane=Math.floor(Math.random()*3),r=Math.random();if(r<.52)state.items.push({type:r<.25?'train':'barrier',lane,z:1});else if(r<.76)state.items.push({type:'gate',lane,z:1});else if(r<.9)state.items.push({type:'coins',lane,z:1});else state.items.push({type:['magnet','shield','double'][Math.floor(Math.random()*3)],lane,z:1});}
+function project(z,lane){let depth=1-z, y=H*.22+depth*depth*H*.72, spread=W*(.055+depth*.31),x=W/2+(lane-1)*spread;return{x,y,scale:.22+depth*.95}}
+function drawTrack(){let horizon=H*.22;let bottom=H*1.05;ctx.fillStyle='#17253a';ctx.fillRect(0,0,W,H);let sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#172d50');sky.addColorStop(1,'#e18b67');ctx.fillStyle=sky;ctx.fillRect(0,0,W,horizon+10);
+for(let i=0;i<13;i++){let x=(i*97+state.road*22)%(W+100)-40,h=35+(i*37)%100;ctx.fillStyle=i%2?'#263d5a':'#304965';ctx.fillRect(x,horizon-h,55,h)}
+ctx.fillStyle='#303c4b';ctx.beginPath();ctx.moveTo(W*.43,horizon);ctx.lineTo(W*.57,horizon);ctx.lineTo(W*.94,bottom);ctx.lineTo(W*.06,bottom);ctx.closePath();ctx.fill();
+for(let side of [-1,1]){ctx.strokeStyle='#d8d5c8';ctx.lineWidth=3;for(let off of [.17,.27]){ctx.beginPath();ctx.moveTo(W/2+side*W*off*.12,horizon);ctx.lineTo(W/2+side*W*off*1.7,bottom);ctx.stroke()}}
+for(let l=0;l<3;l++){let p=project(.03,l);ctx.strokeStyle='#9aa7b4';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(W/2+(l-1)*W*.045,horizon);ctx.lineTo(p.x,H*1.04);ctx.stroke()}
+ctx.strokeStyle='#e7bd5d';ctx.lineWidth=2;for(let i=0;i<16;i++){let z=(i/16+state.road%1/16)%1,p=project(z,1);ctx.beginPath();ctx.moveTo(p.x-W*(.04+z*.25),p.y);ctx.lineTo(p.x+W*(.04+z*.25),p.y);ctx.stroke()}}
+function drawItem(it){let p=project(it.z,it.lane),s=p.scale;ctx.save();ctx.translate(p.x,p.y);if(it.type==='coins'){for(let i=0;i<4;i++){ctx.fillStyle='#ffd94e';ctx.beginPath();ctx.ellipse(0,-i*18*s,7*s,10*s,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff1a3';ctx.stroke()}}else if(['magnet','shield','double'].includes(it.type)){ctx.fillStyle=it.type==='magnet'?'#67e8f9':it.type==='shield'?'#80ffad':'#c6a0ff';ctx.beginPath();ctx.arc(0,-22*s,12*s,0,Math.PI*2);ctx.fill();ctx.fillStyle='#142238';ctx.font='bold '+(12*s)+'px Arial';ctx.textAlign='center';ctx.fillText(it.type==='magnet'?'M':it.type==='shield'?'S':'2',0,-18*s)}else{ctx.fillStyle=it.type==='train'?'#e8b83e':it.type==='gate'?'#c94e5c':'#f07848';let w=(it.type==='train'?52:42)*s,h=(it.type==='train'?100:it.type==='gate'?20:34)*s;ctx.fillRect(-w/2,-h,w,h);ctx.fillStyle='#273b56';if(it.type==='train'){ctx.fillRect(-w*.35,-h*.82,w*.7,h*.35);ctx.fillRect(-w*.35,-h*.35,w*.7,h*.22)}else if(it.type==='gate'){ctx.fillRect(-w*.6,-h*.5,w*1.2,h*.5)}else{ctx.fillRect(-w*.3,-h*.8,w*.6,h*.2)}}ctx.restore()}
+function drawPlayer(){let x=W/2+(state.x-1)*W*.31,y=H*.79,j=state.jump>0?Math.sin((.72-state.jump)/.72*Math.PI)*H*.16:0;ctx.save();ctx.translate(x,y-j);let sliding=state.slide>0;ctx.fillStyle='#07101b66';ctx.beginPath();ctx.ellipse(0,8,23,8,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f4c18b';ctx.beginPath();ctx.arc(0,-42,12,0,Math.PI*2);ctx.fill();ctx.fillStyle='#27c4a8';ctx.fillRect(sliding?-24:-12,sliding?-38:-32,sliding?48:24,sliding?17:35);ctx.strokeStyle='#17243b';ctx.lineWidth=6;ctx.lineCap='round';ctx.beginPath();if(sliding){ctx.moveTo(-12,-20);ctx.lineTo(-24,-5);ctx.moveTo(10,-20);ctx.lineTo(24,-5)}else{ctx.moveTo(-6,0);ctx.lineTo(-10,15);ctx.moveTo(6,0);ctx.lineTo(10,15)}ctx.stroke();ctx.restore()}
+function update(dt){elapsed+=dt;state.distance+=state.speed*dt*34;state.speed=Math.min(.72,.34+elapsed*.004);state.road=(state.road+dt*state.speed*2)%1;state.x+=(state.lane-state.x)*Math.min(1,dt*13);state.jump=Math.max(0,state.jump-dt);state.slide=Math.max(0,state.slide-dt);for(let k of ['shield','magnet','double'])state[k]=Math.max(0,state[k]-dt);state.spawn-=dt;if(state.spawn<=0){spawn();state.spawn=Math.max(.48,1.05-elapsed*.003)+Math.random()*.25}
+for(let it of state.items){it.z-=dt*state.speed*1.25;if(it.z<.14&&it.z>.045&&Math.abs(state.x-it.lane)<.38){if(it.type==='coins'){state.coins+=state.double>0?2:1;it.z=-1;sound(880,.04)}else if(['magnet','shield','double'].includes(it.type)){state[it.type]=it.type==='magnet'?8:it.type==='shield'?7:9;it.z=-1;sound(760,.1)}else{let safe=it.type==='barrier'?state.jump>0:it.type==='gate'?state.slide>0:false;if(!safe){if(state.shield>0){state.shield=0;it.z=-1;state.flash=.2;sound(180)}else{end();return}}}}
+if(it.type==='coins'&&state.magnet>0&&it.z<.65&&Math.abs(state.x-it.lane)<1.2){state.coins++;it.z=-1}
+}state.items=state.items.filter(i=>i.z>-.05);state.flash=Math.max(0,state.flash-dt);$('#score').textContent=Math.floor(state.distance);$('#coins').textContent=state.coins;$('#power').textContent=state.shield>0?'ESCUDO':state.magnet>0?'ÍMÃ':state.double>0?'MOEDAS x2':'SEM POWER-UP'}
+function render(){drawTrack();state.items.slice().sort((a,b)=>a.z-b.z).forEach(drawItem);drawPlayer();if(state.flash>0){ctx.fillStyle='#ffffff55';ctx.fillRect(0,0,W,H)}}
+function frame(t){let dt=Math.min((t-last)/1000||0,.04);last=t;if(state.mode==='run')update(dt);if(state.mode==='run'||state.mode==='pause')render();requestAnimationFrame(frame)}requestAnimationFrame(frame);
+$('#start').onclick=start;document.addEventListener('visibilitychange',()=>{if(document.hidden)pause()});
+})();
+</script></body></html>
